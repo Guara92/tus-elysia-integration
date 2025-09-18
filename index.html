@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>TUS Elysia Bug Report</title>
+  <style>
+    body { font-family: sans-serif; padding: 2em; background-color: #f8f9fa; color: #343a40; }
+    h1 { color: #d9534f; }
+    #drop-area { border: 2px dashed #0275d8; padding: 20px; text-align: center; margin-bottom: 20px; background-color: #fff; }
+    #progress-bar { width: 0; height: 20px; background-color: #5cb85c; margin-top: 10px; }
+    pre { background-color: #e9ecef; padding: 10px; border-radius: 5px; }
+  </style>
+</head>
+<body>
+
+  <h1>TUS Server + Elysia.js Bug Reproduction</h1>
+  <p>This page demonstrates the issue where the <code>POST_FINISH</code> event does not fire on the server.</p>
+
+  <div id="drop-area">
+    <p>Drag & drop a file here or click the button below</p>
+    <input type="file" id="file-input" />
+  </div>
+
+  <h2>Status</h2>
+  <pre id="status">Idle</pre>
+
+  <h2>Progress</h2>
+  <div id="progress-bar"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/tus-js-client@3/dist/tus.min.js"></script>
+  <script>
+    const input = document.getElementById('file-input');
+    const statusElement = document.getElementById('status');
+    const progressBar = document.getElementById('progress-bar');
+
+    input.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) {
+        return;
+      }
+
+      statusElement.textContent = 'Starting upload...';
+      progressBar.style.width = '0%';
+
+      const upload = new tus.Upload(file, {
+        endpoint: '/files',
+        retryDelays: [0, 3000, 5000, 10000, 20000],
+        metadata: {
+          filename: file.name,
+          filetype: file.type,
+        },
+        onError: (error) => {
+          console.error('Upload failed:', error);
+          statusElement.textContent = `Upload failed: ${error}`;
+        },
+        onProgress: (bytesUploaded, bytesTotal) => {
+          const percentage = ((bytesUploaded / bytesTotal) * 100).toFixed(2);
+          progressBar.style.width = `${percentage}%`;
+          statusElement.textContent = `Uploading... ${percentage}%`;
+          console.log(bytesUploaded, bytesTotal, percentage + '%');
+        },
+        onSuccess: () => {
+          console.log('Download %s from %s', upload.file.name, upload.url);
+          statusElement.textContent = `Client-side success! Upload finished for ${upload.file.name}. Check server logs for the POST_FINISH event.`;
+        },
+      });
+
+      upload.start();
+    });
+  </script>
+
+</body>
+</html>
